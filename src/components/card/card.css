@@ -1,7 +1,7 @@
 .card {
     box-shadow: 0px 4px 12px 0px #00000026;
-    max-width: 451px;
-    max-height: 279px;
+    width: 451px;
+    height: 279px;
     border-radius: 0;
     font-family: 'Inter', sans-serif;
     font-style: normal;
@@ -9,25 +9,38 @@
     font-size: 14px;
     line-height: 17px;
     color: #000000;
+    border:none;
+}
+
+.ant-card .ant-card-body{
+    padding:0;
+    height: 100%;
 }
 
 .container .ant-card-body .card__cover-container{
     padding: 0;
-    width: 40%;
+    width: 183px;
     box-shadow: none;
 }
 
 .container .ant-card-body .card__info-container{
-    width: 60%;
+    width: 268px;
     box-shadow: none;
     padding: 10px 20px 49px 20px;
+    flex-shrink: 0;
+}
+
+.card__cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .card__title{
     margin:0;
 
     font-weight: 400;
-    font-size: 24px;
+    font-size: 20px;
     line-height: 28px;
     color: #000000;
     font-optical-sizing: auto;
@@ -39,15 +52,16 @@
     color: #827e7e;
     font-size: 12px;
     line-height: 22px;
-    margin-bottom: 9px;
+    margin:0;
 }
 
 .card__genres{
     display: block;
-    margin-top: 9px;
 }
 
 .card__genre {
+    margin-top: 8px;
+    margin-right: 8px;
     display: inline-block;
     border: 1px solid #D9D9D9;
     background-color: #FAFAFA;
@@ -56,10 +70,10 @@
     font-size: 12px;
     line-height: 14.52px;
     color: #000000A6;
-    margin-right: 8px;
 }
 
 .card__description{
     font-size: 12px;
     line-height: 22px;
+    margin: 7px 0 0 0;
 }
