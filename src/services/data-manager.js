@@ -17,7 +17,7 @@ class MoviesApiService {
         Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
       },
     };
-
+    console.log(process.env.REACT_APP_ACCESS_TOKEN_AUTH);
     let rslt = null;
 
     rslt = await fetch(url, options);

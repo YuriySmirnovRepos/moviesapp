@@ -1,22 +1,22 @@
-import React from 'react';
-import CardList from '../card-list/card-list'; //Список карточек
-import DataManager from '../../services/data-manager'; //Менеджер работы с данными
-import Utils from '../../utils/utils'; //Тут debounce
-import { Spin, Alert, Pagination, Input } from 'antd';
-import './app.css';
+import React from "react";
+import CardList from "../card-list/card-list"; //Список карточек
+import DataManager from "../../services/data-manager"; //Менеджер работы с данными
+import Utils from "../../utils/utils"; //Тут debounce
+import { Spin, Alert, Pagination, Input } from "antd";
+import "./app.css";
 
 const INPUT_DELAY_BEFORE_SEARCH = 800;
 
 export default class App extends React.Component {
   state = {
-    query: 'return',
+    query: "return",
     totalElements: 0,
     movies: [],
     loading: true,
     error: null,
   };
 
-  loadData = (page = 1, title = 'return') => {
+  loadData = (page = 1, title = "return") => {
     const dataManager = new DataManager();
     dataManager.getMovies(title, page).then(
       (data) => {
@@ -36,8 +36,8 @@ export default class App extends React.Component {
   };
 
   onInputChange = ({ target: { value } }) => {
-    if (value.trim() === '') {
-      this.setState({ query: '', movies: [], error: null, totalElements: 0 });
+    if (value.trim() === "") {
+      this.setState({ query: "", movies: [], error: null, totalElements: 0 });
       return;
     }
 
@@ -57,17 +57,17 @@ export default class App extends React.Component {
 
   componentDidMount() {
     this.loadData();
-    window.addEventListener('offline', this.handleOffline);
-    window.addEventListener('online', this.handleOnline);
+    window.addEventListener("offline", this.handleOffline);
+    window.addEventListener("online", this.handleOnline);
   }
 
   componentWillUnmount() {
-    window.removeEventListener('offline', this.handleOffline);
-    window.removeEventListener('online', this.handleOnline);
+    window.removeEventListener("offline", this.handleOffline);
+    window.removeEventListener("online", this.handleOnline);
   }
 
   handleOffline = () => {
-    this.setState({ error: new Error('No internet connection') });
+    this.setState({ error: new Error("No internet connection") });
   };
 
   handleOnline = () => {
@@ -81,10 +81,10 @@ export default class App extends React.Component {
         <Alert
           type="error"
           banner
-          message={'Loading error'}
+          message={"Loading error"}
           description={this.state.error?.message}
           showIcon
-          style={{ width: '100%', textAlign: 'center' }}
+          style={{ width: "100%", textAlign: "center" }}
         ></Alert>
       </React.Fragment>
     );
@@ -93,17 +93,15 @@ export default class App extends React.Component {
         <Alert
           type="info"
           banner
-          message={'No results'}
-          description={'Try another search'}
+          message={"No results"}
+          description={"Try another search"}
           showIcon
-          style={{ width: '100%', textAlign: 'center' }}
+          style={{ width: "100%", textAlign: "center" }}
         ></Alert>
       </React.Fragment>
     );
-
     return (
       <div className="container">
-        {this.state.error ? errorMessage : null}
         <Input
           disabled={this.state.loading}
           placeholder="Type to search"
@@ -112,24 +110,26 @@ export default class App extends React.Component {
             INPUT_DELAY_BEFORE_SEARCH
           )}
           defaultValue={this.state.query}
-          style={{ height: '40px', fontSize: '16px' }}
+          style={{ height: "40px", fontSize: "16px" }}
         />
+        {this.state.error ? errorMessage : null}
         {this.state.loading ? (
           <Spin
             spinning={this.state.loading}
             size="large"
-            style={{ width: '100%', marginTop: '20px', marginBottom: '20px' }}
+            style={{ width: "100%", marginTop: "20px", marginBottom: "20px" }}
           />
+        ) : this.state.totalElements === 0 && !this.state.error ? (
+          noResultsMessage
         ) : (
           <CardList movies={this.state.movies} />
         )}
-        {this.totalElements === 0 ? noResultsMessage : null}
         <Pagination
           showSizeChanger={false}
           defaultCurrent={1}
           defaultPageSize={6}
           total={this.state.totalElements}
-          style={{ alignSelf: 'center' }}
+          style={{ alignSelf: "center" }}
           onChange={this.onPaginationPageChange}
         />
       </div>
