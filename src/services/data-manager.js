@@ -1,28 +1,55 @@
 const REACT_APP_ACCESS_TOKEN_AUTH = process.env.REACT_APP_ACCESS_TOKEN_AUTH;
-const BASE_URL = 'http://api.themoviedb.org/3';
-const IMAGES_BASE_URL = 'https://image.tmdb.org/t/p/w185'; //w185 - размер получаемой картинки к фильму
-const ITEMS_COUNT_PER_PAGINATION_PAGE = 6;
+const BASE_URL = "http://api.themoviedb.org/3";
+const IMAGES_BASE_URL = "https://image.tmdb.org/t/p/w185"; //w185 - размер получаемой картинки к фильму
+const ITEMS_COUNT_PER_DISPLAY_PAGE = 6;
 const ITEMS_COUNT_PER_DATA_PAGE = 20;
 
 class MoviesApiService {
+
+  #getGuestSession = async () => {
+    const createGuestSession = async () => {
+      const url = `${BASE_URL}/authentication/guest_session/new`;
+      let { success, guest_session_id } =
+        await this.#getResource(url);
+
+      if (!success) {
+        throw new Error("Failed to create guest session");
+      }
+
+      return guest_session_id;
+    }
+
+    let guestSessionId = localStorage.getItem("guestSessionId");
+    if (guestSessionId) {
+      return guestSessionId;
+    }
+
+    const guest_session_id = await createGuestSession();
+    localStorage.setItem("guestSessionId", guest_session_id);
+    
+    return guest_session_id;
+  };
+
+
   #getResource = async (url) => {
-    if (navigator.onLine === false) {
-      throw new Error('No internet connection');
+    if (!navigator.onLine) {
+      throw new Error("No internet connection");
     }
     const options = {
       // mode: 'no-cors',
-      method: 'GET',
+      method: "GET",
       headers: {
-        accept: 'application/json',
+        accept: "application/json",
         Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
       },
     };
-    console.log(process.env.REACT_APP_ACCESS_TOKEN_AUTH);
+
     let rslt = null;
 
     rslt = await fetch(url, options);
 
     if (!rslt.ok) {
+      if (rslt.status === 404) return null;
       throw new Error(`Сервер сообщил об ошибке. ${rslt.statusText}`);
     }
 
@@ -39,7 +66,7 @@ class MoviesApiService {
     return genres.genres;
   };
 
-  fetchMovies = async (dataPageNum = 1, title) => {
+  fetchSearch = async (dataPageNum = 1, title) => {
     const searchParams = new URLSearchParams({
       include_adult: false,
       query: title,
@@ -50,112 +77,135 @@ class MoviesApiService {
 
     return await this.#getResource(url);
   };
+
+  fetchRated = async (dataPageNum = 1) => {
+    let guestSessionId = await this.#getGuestSession();
+    const searchParams = new URLSearchParams({
+      language: "en-US",
+      page: dataPageNum,
+      sort_by: "created_at.asc",
+    });
+
+    const url = `${BASE_URL}/guest_session/${
+      guestSessionId
+    }/rated/movies?${searchParams}`;
+
+    return await this.#getResource(url);
+  };
 }
 
 export default class DataManager {
-  static #currentTitle = '';
-  static #dataFromServer = new Map();
-  static totalElementsCount = 0;
-  static #genres = null;
-  static #moviesApiService = new MoviesApiService();
-  static #itemsRangesOnDataPage = {
-    1: [0, 6],
-    2: [6, 12],
-    3: [12, 18],
-    4: [18, 4], //Часть данных - на следующей странице данных от сервера
-    5: [4, 10],
-    6: [10, 16],
-    7: [16, 2], //Часть данных - на следующей странице данных от сервера
-    8: [2, 8],
-    9: [8, 14],
-    10: [14, 20],
+  #currentQuery = "";
+  #searchCache = new Map();
+  #ratedCache = new Map();
+  totalSearchCount = 0;
+  totalRatedCount = 0;
+  #genres = null;
+  #moviesApiService = new MoviesApiService();
+
+  init = async () => {
+    //Инициализация жанров
+    if (!this.#genres) {
+      this.#genres = await this.#moviesApiService.getGenres();
+    }
+
+    if (this.#ratedCache.size === 0) {
+      const rated = await this.#moviesApiService.fetchRated();
+      if (rated) {
+        // TODO: формат данных??
+        this.#ratedCache.set(...rated);
+      }
+    }
   };
 
-  //Вернуть массив с фильмами для страницы пагинации
-  getMovies = async (nwTitle = 'return', paginationPageNum = 1) => {
+  #calcPageAndIndex = (
+    displayPage,
+    items2DisplayCount = 6,
+    itemsPerPageDataCount = 20
+  ) => {
+    const dataPage =
+      Math.floor(
+        ((displayPage - 1) * items2DisplayCount) / itemsPerPageDataCount
+      ) + 1;
+    const startIdx =
+      ((displayPage - 1) * items2DisplayCount) % itemsPerPageDataCount;
+    return { dataPage, startIdx };
+  };
+
+  #getDisplayPageData = async (paginationPageNum, searchQuery) => {
+    const { dataPage, startIdx } = this.#calcPageAndIndex(
+      paginationPageNum,
+      ITEMS_COUNT_PER_DISPLAY_PAGE,
+      ITEMS_COUNT_PER_DATA_PAGE
+    );
+
     let rslt = [];
+    let endIdx =
+      startIdx + ITEMS_COUNT_PER_DISPLAY_PAGE - ITEMS_COUNT_PER_DATA_PAGE;
 
-    //Инициализация жанров
-    if (!DataManager.#genres) {
-      DataManager.#genres = await DataManager.#moviesApiService.getGenres();
-    }
+    const data = await this.#getData(dataPage, searchQuery);
+    rslt.push(
+      ...data.slice(startIdx, startIdx + ITEMS_COUNT_PER_DISPLAY_PAGE)
+    );
 
-    // Если поиск новый (не переключение страниц пагинации), то очистить кэш и обновить поле #currentTitle
-    const isTheTitleTheSame = nwTitle === DataManager.#currentTitle;
-
-    if (!isTheTitleTheSame) {
-      DataManager.#currentTitle = nwTitle;
-      DataManager.#dataFromServer = new Map();
-    }
-
-    let pageNumOfData = Math.ceil(
-      (paginationPageNum * ITEMS_COUNT_PER_PAGINATION_PAGE) /
-        ITEMS_COUNT_PER_DATA_PAGE
-    ); // получаем номер текущей страницы данных по номеру пагинации
-
-    let start,
-      end = 0; // диапазон на странице данных
-
-    let reducedPageNumOfView = paginationPageNum % 10;
-    if (reducedPageNumOfView === 0) {
-      reducedPageNumOfView = 10;
-    }
-
-    [start, end] = DataManager.#itemsRangesOnDataPage[reducedPageNumOfView];
-
-    let data = null;
-
-    if (reducedPageNumOfView !== 4 && reducedPageNumOfView !== 7) {
-      data = await this.#getDataFromCacheOrServer(pageNumOfData, nwTitle);
-
-      rslt.push(...data.slice(start, end));
-    } else {
-      if (reducedPageNumOfView === 4) {
-        if (pageNumOfData % 3 === 2) {
-          //Первая часть данных с предыдущей страницы данных
-          data = await this.#getDataFromCacheOrServer(
-            pageNumOfData - 1,
-            nwTitle
-          );
-          rslt.push(...data.slice(start, 20));
-
-          //Вторая часть данных на текущей странице данных
-          data = await this.#getDataFromCacheOrServer(pageNumOfData, nwTitle);
-          rslt.push(...data.slice(0, end));
-        }
-      }
-
-      if (reducedPageNumOfView === 7) {
-        //Первая часть данных с предыдущей страницы данных
-        data = await this.#getDataFromCacheOrServer(pageNumOfData - 1, nwTitle);
-        rslt.push(...data.slice(start, 20));
-
-        //Вторая часть данных на текущей странице данных
-        data = await this.#getDataFromCacheOrServer(pageNumOfData, nwTitle);
-        rslt.push(...data.slice(0, end));
-      }
+    if (endIdx > 0) {
+      const secondPartOfData = await this.#getData(dataPage + 1, searchQuery);
+      rslt.push(...secondPartOfData.slice(0, endIdx));
     }
 
     return rslt;
   };
 
-  //Вернуть выдачу сервера с 20 результатами на страницу
-  #getDataFromCacheOrServer = async (dataPageNum, title) => {
-    if (DataManager.#dataFromServer.has(dataPageNum)) {
-      return Promise.resolve(DataManager.#dataFromServer.get(dataPageNum));
+  //Вернуть массив с фильмами для страницы пагинации
+  search = async (nwQuery, paginationPageNum) => {
+
+    if (!this.#genres) {
+      throw new Error("Genres not initialized. Check your internet connection");
     }
+
+    // Чистка кэша при поиске по новому запросу
+    const isNeedsToClearCache = nwQuery !== this.#currentQuery;
+
+    if (isNeedsToClearCache) {
+      this.#currentQuery = nwQuery;
+      this.#searchCache = new Map();
+    }
+    return this.#getDisplayPageData(paginationPageNum, nwQuery);
+  };
+
+  getRated = async (paginationPageNum) => {
+    return this.#getDisplayPageData(paginationPageNum);
+  };
+
+  //Вернуть выдачу с 20 результатами на страницу.
+  // Если title не задан, возвращаем оцененные фильмы
+  #getData = async (dataPageNum, query) => {
+    const isRatedNeeded = !query;
+    if (isRatedNeeded){
+      if (this.#ratedCache.has(dataPageNum)) {
+        return Promise.resolve(this.#ratedCache.get(dataPageNum));
+      }
+    } else{
+      if (this.#searchCache.has(dataPageNum)) {
+        return Promise.resolve(this.#searchCache.get(dataPageNum));
+      }
+    }
+
     let results,
       total_results = null;
     try {
       ({ results, total_results } =
-        await DataManager.#moviesApiService.fetchMovies(dataPageNum, title));
+        await this.#moviesApiService.fetchSearch(
+          dataPageNum,
+          query
+        ));
       results = this.#formatData(results);
-      DataManager.#dataFromServer.set(dataPageNum, results);
+      this.#searchCache.set(dataPageNum, results);
     } catch (error) {
       console.log(error);
       throw error;
     }
-    DataManager.totalElementsCount = total_results;
+    this.totalSearchCount = total_results;
 
     return results;
   };
@@ -163,7 +213,7 @@ export default class DataManager {
   #formatData = (data) => {
     //Вспомогательная функция получения имени жанра по ID
     const getGenreName = (genreId) => {
-      const findedGenre = DataManager.#genres.find(
+      const findedGenre = this.#genres.find(
         (genre) => genre.id === genreId
       );
       return findedGenre.name;

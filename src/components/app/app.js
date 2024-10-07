@@ -1,62 +1,25 @@
 import React from "react";
-import CardList from "../card-list/card-list"; //Список карточек
 import DataManager from "../../services/data-manager"; //Менеджер работы с данными
-import Utils from "../../utils/utils"; //Тут debounce
-import { Spin, Alert, Pagination, Input } from "antd";
+import CardList from "../card-list/card-list"; //Список карточек
+import Tabs from "../tabs/tabs";
+import Loader from "../loader/loader";
+import Message from "../message/message";
+import Pagination from "../pagination/pagination";
+import SearchInput from "../search-input/search-input";
 import "./app.css";
-
-const INPUT_DELAY_BEFORE_SEARCH = 800;
+import Utils from "../../utils/utils";
 
 export default class App extends React.Component {
-  state = {
-    query: "return",
-    totalElements: 0,
-    movies: [],
-    loading: true,
-    error: null,
-  };
+  dataManager = new DataManager();
 
-  loadData = (page = 1, title = "return") => {
-    const dataManager = new DataManager();
-    dataManager.getMovies(title, page).then(
-      (data) => {
-        this.setState({
-          totalElements: DataManager.totalElementsCount,
-          movies: data,
-          loading: false,
-        });
-      },
-      (e) => {
-        this.setState({
-          loading: false,
-          error: e,
-        });
-      }
-    );
-  };
-
-  onInputChange = ({ target: { value } }) => {
-    if (value.trim() === "") {
-      this.setState({ query: "", movies: [], error: null, totalElements: 0 });
-      return;
-    }
-
-    this.setState({
-      query: value,
-      error: null,
-      loading: true,
-      totalElements: 0,
-    });
-    this.loadData(1, value);
-  };
-
-  onPaginationPageChange = (page) => {
-    this.setState({ loading: true });
-    this.loadData(page, this.state.query);
-  };
+  //#region lifecycle
 
   componentDidMount() {
-    this.loadData();
+    this.dataManager
+      .init()
+      .then(() => this.getRated(1))
+      .then(() => this.search(1, "return"))
+      .catch(this.errorHandler);
     window.addEventListener("offline", this.handleOffline);
     window.addEventListener("online", this.handleOnline);
   }
@@ -66,71 +29,232 @@ export default class App extends React.Component {
     window.removeEventListener("online", this.handleOnline);
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    let isChanged = JSON.stringify(this.state) !== JSON.stringify(nextState);
+    return isChanged;
+  }
+  //#endregion
+
+  state = {
+    error: null,
+    searchData: {
+      query: "return",
+      totalElements: {
+        Search: 0,
+        Rated: 0,
+      },
+      movies: [],
+      ratedMovies: [],
+    },
+    ui: {
+      isLoading: true,
+      currentPagination: {
+        Search: 1,
+        Rated: 1,
+      },
+      currentTab: "Search",
+    },
+  };
+
+  #getCleanState = (isNeeds2ClearRated = false) => {
+    let clearStateParams = {
+      error: null,
+      searchData: {
+        query: "",
+        totalElements: {
+          Search: 0,
+        },
+        movies: [],
+      },
+      ui: {
+        isLoading: false,
+        currentPagination: {
+          Search: 1,
+        },
+        currentTab: "Search",
+      },
+    };
+    if (isNeeds2ClearRated) {
+      clearStateParams.searchData.ratedMovies = [];
+      clearStateParams.searchData.totalElements.Rated = 0;
+      clearStateParams.ui.currentPagination.Rated = 1;
+    }
+    return clearStateParams;
+  };
+
+  getRated = (page) => {
+    this.dataManager
+      .getRated(page)
+      .then((data) => {
+        let changes = {
+          searchData: {
+            totalElements: {
+              Rated: this.dataManager.totalRatedCount,
+            },
+            ratedMovies: data ?? [],
+          },
+          ui: {
+            isLoading: false,
+          },
+        };
+
+        this.setState((state) => {
+          let nwState = Utils.mergeDeep(state, changes);
+          return nwState;
+        });
+      })
+      .catch(this.errorHandler);
+  };
+
+  search = (page, title) => {
+    this.dataManager.search(title, page).then(
+      (data) => {
+        let changes = {
+          searchData: {
+            totalElements: {
+              Search: this.dataManager.totalSearchCount,
+            },
+            movies: data,
+          },
+          ui: {
+            currentPagination: {
+              Search: page,
+            },
+            isLoading: false,
+          },
+        };
+
+        this.setState((state) => {
+          let nwState = Utils.mergeDeep(state, changes);
+          return nwState;
+        });
+      }
+    ).catch(this.errorHandler);
+  };
+
+  //#region handlers
+  errorHandler = (error) => {
+    this.setState((state) => {
+      let changes = this.#getCleanState();
+      changes.error = error;
+      let nwState = Utils.mergeDeep(state, changes);
+      return nwState;
+    });
+  }
+
+  onInputChange = ({ target: { value } }) => {
+    if (value.trim() === "") {
+      const cleanState = this.#getCleanState();
+      this.setState((state) => {
+        const nwState = Utils.mergeDeep(state, cleanState);
+        return nwState;
+      });
+      return;
+    }
+
+    this.setState((state) => {
+      const changes = {
+        searchData: {
+          query: value,
+        },
+        ui: {
+          isLoading: true,
+        },
+      };
+      const nwState = Utils.mergeDeep(state, changes);
+      return nwState;
+    }, this.search(1, value));
+  };
+
+  onPaginationPageChanged = (page) => {
+    this.setState({
+      ui: {
+        ...this.state.ui,
+        isLoading: true,
+        currentPagination: {
+          ...this.state.ui.currentPagination,
+          [this.state.ui.currentTab]: page,
+        },
+      },
+    });
+    this.search(page, this.state.searchData.query);
+  };
+
   handleOffline = () => {
     this.setState({ error: new Error("No internet connection") });
   };
 
   handleOnline = () => {
-    this.setState({ loading: true, error: null });
-    this.loadData(1, this.state.query);
+    const nwState = { error: null, ui: { isLoading: true } };
+    this.setState((state) => {
+      return Utils.mergeDeep(state, nwState);
+    });
+    this.search(1, this.state.searchData.query);
   };
 
+  handleTabClick = (key) => {
+    const tabLabel = key === "1" ? "Search" : "Rated";
+    const changes = {
+      ui: {
+        currentTab: tabLabel,
+      },
+    };
+    const nwState = Utils.mergeDeep(this.state, changes);
+    this.setState(nwState);
+  };
+
+  //#endregion
+
   render() {
-    const errorMessage = (
+    const {
+      error,
+      searchData: { query, movies, ratedMovies, totalElements },
+      ui: { isLoading, currentPagination, currentTab },
+    } = this.state;
+
+    const isCurrentTabIsSearch = currentTab === "Search";
+    const isMaybeAnInfoMessage = !isLoading && !error;
+    const isNoSearchResults = movies.length === 0;
+    const isNoRatedMovies = ratedMovies.length === 0;
+    const isShowNoResults =
+      isMaybeAnInfoMessage && isCurrentTabIsSearch && isNoSearchResults;
+    const isShowNoRated =
+      isMaybeAnInfoMessage && !isCurrentTabIsSearch && isNoRatedMovies;
+    const isShowError = !isLoading && error !== null;
+
+    const renderTabContent = (
       <React.Fragment>
-        <Alert
-          type="error"
-          banner
-          message={"Loading error"}
-          description={this.state.error?.message}
-          showIcon
-          style={{ width: "100%", textAlign: "center" }}
-        ></Alert>
+        {isCurrentTabIsSearch ? (
+          <SearchInput
+            query={query}
+            disabled={isLoading}
+            onInputChange={this.onInputChange}
+          />
+        ) : null}
+
+        {isShowError ? <Message error={error} /> : null}
+        {isShowNoResults ? <Message isNoSearchResults /> : null}
+        {isShowNoRated ? <Message isNoRatedMovies /> : null}
+
+        <Loader isLoading={isLoading}>
+          <CardList movies={isCurrentTabIsSearch ? movies : ratedMovies} />
+        </Loader>
+
+        <Pagination
+          currentPaginationPage={currentPagination[currentTab]}
+          totalElementsCount={totalElements[currentTab]}
+          onPaginationPageChanged={this.onPaginationPageChanged}
+        />
       </React.Fragment>
     );
-    const noResultsMessage = (
-      <React.Fragment>
-        <Alert
-          type="info"
-          banner
-          message={"No results"}
-          description={"Try another search"}
-          showIcon
-          style={{ width: "100%", textAlign: "center" }}
-        ></Alert>
-      </React.Fragment>
-    );
+
     return (
       <div className="container">
-        <Input
-          disabled={this.state.loading}
-          placeholder="Type to search"
-          onChange={Utils.debounce(
-            this.onInputChange,
-            INPUT_DELAY_BEFORE_SEARCH
-          )}
-          defaultValue={this.state.query}
-          style={{ height: "40px", fontSize: "16px" }}
-        />
-        {this.state.error ? errorMessage : null}
-        {this.state.loading ? (
-          <Spin
-            spinning={this.state.loading}
-            size="large"
-            style={{ width: "100%", marginTop: "20px", marginBottom: "20px" }}
-          />
-        ) : this.state.totalElements === 0 && !this.state.error ? (
-          noResultsMessage
-        ) : (
-          <CardList movies={this.state.movies} />
-        )}
-        <Pagination
-          showSizeChanger={false}
-          defaultCurrent={1}
-          defaultPageSize={6}
-          total={this.state.totalElements}
-          style={{ alignSelf: "center" }}
-          onChange={this.onPaginationPageChange}
+        <Tabs
+          currentTabKey={currentTab === "Search" ? "1" : "2"}
+          onTabClick={this.handleTabClick}
+          renderTabContent={renderTabContent}
+          isLoading={isLoading}
         />
       </div>
     );
