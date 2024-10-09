@@ -46,15 +46,14 @@ export default class Card extends React.Component {
 }
 
 class CardContent extends React.Component {
-
   constructor(props) {
     super(props);
     this.descriptionRef = React.createRef();
   }
 
   componentDidMount() {
-    let {scrollHeight, clientHeight} = this.descriptionRef.current;
-    if (scrollHeight !== clientHeight){
+    let { scrollHeight, clientHeight } = this.descriptionRef.current;
+    if (scrollHeight !== clientHeight) {
       this.#truncateTxt();
     }
   }
@@ -74,7 +73,8 @@ class CardContent extends React.Component {
   };
 
   render() {
-    let { name, premier, genres, description, rating } = this.props.cardData;
+    let { id, name, premier, genres, description, rating, setRating } =
+      this.props.cardData;
 
     if (!description) {
       description = "No description";
@@ -135,7 +135,7 @@ class CardContent extends React.Component {
           {/* //TODO: Обработать ситуацию с отсутствием описания  */}
           {description}
         </p>
-        <Rate />
+        <Rate value setRating={setRating(id)} />
       </div>
     );
   }

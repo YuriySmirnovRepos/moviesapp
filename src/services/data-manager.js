@@ -5,19 +5,17 @@ const ITEMS_COUNT_PER_DISPLAY_PAGE = 6;
 const ITEMS_COUNT_PER_DATA_PAGE = 20;
 
 class MoviesApiService {
-
   #getGuestSession = async () => {
     const createGuestSession = async () => {
       const url = `${BASE_URL}/authentication/guest_session/new`;
-      let { success, guest_session_id } =
-        await this.#getResource(url);
+      let { success, guest_session_id } = await this.#getResource(url);
 
       if (!success) {
         throw new Error("Failed to create guest session");
       }
 
       return guest_session_id;
-    }
+    };
 
     let guestSessionId = localStorage.getItem("guestSessionId");
     if (guestSessionId) {
@@ -26,10 +24,9 @@ class MoviesApiService {
 
     const guest_session_id = await createGuestSession();
     localStorage.setItem("guestSessionId", guest_session_id);
-    
+
     return guest_session_id;
   };
-
 
   #getResource = async (url) => {
     if (!navigator.onLine) {
@@ -49,7 +46,7 @@ class MoviesApiService {
     rslt = await fetch(url, options);
 
     if (!rslt.ok) {
-      if (rslt.status === 404) return null;
+      if (rslt.status === 404) return {results: [], total_results: 0};
       throw new Error(`Сервер сообщил об ошибке. ${rslt.statusText}`);
     }
 
@@ -58,7 +55,52 @@ class MoviesApiService {
     return rslt;
   };
 
-  getGenres = async () => {
+  #setResource = async (url, data) => {
+    if (!navigator.onLine) {
+      throw new Error("No internet connection");
+    }
+    const options = {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    };
+
+    let rslt = await fetch(url, options);
+    if (!rslt?.ok) {
+      throw new Error("setResorce: Failed to set resource");
+    }
+  }
+
+  #deleteResource = async (url) => {
+    if (!navigator.onLine) {
+      throw new Error("No internet connection");
+    }
+    const options = {
+      method: "DELETE",
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
+        "Content-Type": "application/json",
+      },
+    };
+    let rslt = await fetch(url, options);
+    if (!rslt?.ok) {
+      throw new Error("deleteResource: Failed to delete resource");
+    }
+  }
+///////////////////////
+///////////////////////
+  sendSetRating = async (movieId, rating) => {
+    let guestSessionId = await this.#getGuestSession();
+    const url = `${BASE_URL}/movie/${movieId}/rating?guest_session_id=${guestSessionId}`;
+    this.#setResource(url, {value: rating});
+  }
+
+  fetchGenres = async () => {
     //получаем данные о жанрах
     const genres = await this.#getResource(
       `${BASE_URL}/genre/movie/list?language=en-US`
@@ -86,9 +128,7 @@ class MoviesApiService {
       sort_by: "created_at.asc",
     });
 
-    const url = `${BASE_URL}/guest_session/${
-      guestSessionId
-    }/rated/movies?${searchParams}`;
+    const url = `${BASE_URL}/guest_session/${guestSessionId}/rated/movies?${searchParams}`;
 
     return await this.#getResource(url);
   };
@@ -106,14 +146,14 @@ export default class DataManager {
   init = async () => {
     //Инициализация жанров
     if (!this.#genres) {
-      this.#genres = await this.#moviesApiService.getGenres();
+      this.#genres = await this.#moviesApiService.fetchGenres();
     }
 
     if (this.#ratedCache.size === 0) {
       const rated = await this.#moviesApiService.fetchRated();
-      if (rated) {
+      if (rated?.total_results > 0) {
         // TODO: формат данных??
-        this.#ratedCache.set(...rated);
+        this.#ratedCache.set(1, ...rated.results);
       }
     }
   };
@@ -131,8 +171,22 @@ export default class DataManager {
       ((displayPage - 1) * items2DisplayCount) % itemsPerPageDataCount;
     return { dataPage, startIdx };
   };
-
+  
   #getDisplayPageData = async (paginationPageNum, searchQuery) => {
+    if (!this.#genres) {
+      throw new Error("Genres not initialized. Check your internet connection");
+    }
+
+    if (searchQuery) {
+      // Чистка кэша при поиске по новому запросу
+      const isNeedsToClearCache = searchQuery !== this.#currentQuery;
+
+      if (isNeedsToClearCache) {
+        this.#currentQuery = this.searchQuery;
+        this.#searchCache = new Map();
+      }
+    }
+
     const { dataPage, startIdx } = this.#calcPageAndIndex(
       paginationPageNum,
       ITEMS_COUNT_PER_DISPLAY_PAGE,
@@ -144,9 +198,7 @@ export default class DataManager {
       startIdx + ITEMS_COUNT_PER_DISPLAY_PAGE - ITEMS_COUNT_PER_DATA_PAGE;
 
     const data = await this.#getData(dataPage, searchQuery);
-    rslt.push(
-      ...data.slice(startIdx, startIdx + ITEMS_COUNT_PER_DISPLAY_PAGE)
-    );
+    rslt.push(...data.slice(startIdx, startIdx + ITEMS_COUNT_PER_DISPLAY_PAGE));
 
     if (endIdx > 0) {
       const secondPartOfData = await this.#getData(dataPage + 1, searchQuery);
@@ -156,51 +208,27 @@ export default class DataManager {
     return rslt;
   };
 
-  //Вернуть массив с фильмами для страницы пагинации
-  search = async (nwQuery, paginationPageNum) => {
-
-    if (!this.#genres) {
-      throw new Error("Genres not initialized. Check your internet connection");
-    }
-
-    // Чистка кэша при поиске по новому запросу
-    const isNeedsToClearCache = nwQuery !== this.#currentQuery;
-
-    if (isNeedsToClearCache) {
-      this.#currentQuery = nwQuery;
-      this.#searchCache = new Map();
-    }
-    return this.#getDisplayPageData(paginationPageNum, nwQuery);
-  };
-
-  getRated = async (paginationPageNum) => {
-    return this.#getDisplayPageData(paginationPageNum);
-  };
-
   //Вернуть выдачу с 20 результатами на страницу.
-  // Если title не задан, возвращаем оцененные фильмы
+  // Если title не задан, возвращаем оцененные фильмы,
+  // в кэше данные : "ключ - номер страницы данных, значение - список фильмов"
   #getData = async (dataPageNum, query) => {
     const isRatedNeeded = !query;
-    if (isRatedNeeded){
-      if (this.#ratedCache.has(dataPageNum)) {
-        return Promise.resolve(this.#ratedCache.get(dataPageNum));
-      }
-    } else{
-      if (this.#searchCache.has(dataPageNum)) {
-        return Promise.resolve(this.#searchCache.get(dataPageNum));
-      }
+    const cache2Use = isRatedNeeded ? this.#ratedCache : this.#searchCache;
+    if (cache2Use.has(dataPageNum)) {
+      return Promise.resolve(cache2Use.get(dataPageNum));
     }
+
+    const func2Use = isRatedNeeded
+      ? this.#moviesApiService.fetchRated
+      : this.#moviesApiService.fetchSearch;
+    const args = isRatedNeeded ? [dataPageNum] : [dataPageNum, query];
 
     let results,
       total_results = null;
     try {
-      ({ results, total_results } =
-        await this.#moviesApiService.fetchSearch(
-          dataPageNum,
-          query
-        ));
-      results = this.#formatData(results);
-      this.#searchCache.set(dataPageNum, results);
+      ({ results, total_results } = await func2Use(...args));
+      results = this.#transformData(results);
+      cache2Use.set(dataPageNum, results);
     } catch (error) {
       console.log(error);
       throw error;
@@ -210,12 +238,10 @@ export default class DataManager {
     return results;
   };
 
-  #formatData = (data) => {
+  #transformData = (data) => {
     //Вспомогательная функция получения имени жанра по ID
     const getGenreName = (genreId) => {
-      const findedGenre = this.#genres.find(
-        (genre) => genre.id === genreId
-      );
+      const findedGenre = this.#genres.find((genre) => genre.id === genreId);
       return findedGenre.name;
     };
 
@@ -235,5 +261,22 @@ export default class DataManager {
         poster: formatPosterPath(movie.poster_path),
       };
     });
+  };
+////////////////////////////////
+////////////////////////////////
+  search = async (nwQuery, paginationPageNum) => {
+    return this.#getDisplayPageData(paginationPageNum, nwQuery);
+  };
+
+  setRating = async (movieId, rating) => {
+    return this.#moviesApiService.sendSetRating(movieId, rating);
+  };
+
+  getMyRating = async (movieId) => {
+    return this.#moviesApiService.getMyRating(movieId);
+  }
+
+  getRated = async (paginationPageNum) => {
+    return this.#getDisplayPageData(paginationPageNum);
   };
 }

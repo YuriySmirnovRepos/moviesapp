@@ -6,7 +6,7 @@ import './card-list.css';
 
 export default class CardList extends React.Component {
   render() {
-    const { movies } = this.props;
+    const { movies, setRating } = this.props;
     
     const cards = movies.map((movie) => {
       return (
@@ -18,6 +18,7 @@ export default class CardList extends React.Component {
             description={movie.description}
             poster={movie.poster}
             rating={movie.rating}
+            setRating={setRating}
           />
         </Col>
       );

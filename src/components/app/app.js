@@ -17,8 +17,7 @@ export default class App extends React.Component {
   componentDidMount() {
     this.dataManager
       .init()
-      .then(() => this.getRated(1))
-      .then(() => this.search(1, "return"))
+      .then(() => this.showSearchResults(1, "return"))
       .catch(this.errorHandler);
     window.addEventListener("offline", this.handleOffline);
     window.addEventListener("online", this.handleOnline);
@@ -82,11 +81,11 @@ export default class App extends React.Component {
     return clearStateParams;
   };
 
-  getRated = (page) => {
+  showRated = (page) => {
     this.dataManager
       .getRated(page)
       .then((data) => {
-        let changes = {
+        const changes = {
           searchData: {
             totalElements: {
               Rated: this.dataManager.totalRatedCount,
@@ -106,10 +105,11 @@ export default class App extends React.Component {
       .catch(this.errorHandler);
   };
 
-  search = (page, title) => {
-    this.dataManager.search(title, page).then(
-      (data) => {
-        let changes = {
+  showSearchResults = (page, title) => {
+    this.dataManager
+      .search(title, page)
+      .then((data) => {
+        const changes = {
           searchData: {
             totalElements: {
               Search: this.dataManager.totalSearchCount,
@@ -128,8 +128,8 @@ export default class App extends React.Component {
           let nwState = Utils.mergeDeep(state, changes);
           return nwState;
         });
-      }
-    ).catch(this.errorHandler);
+      })
+      .catch(this.errorHandler);
   };
 
   //#region handlers
@@ -140,7 +140,7 @@ export default class App extends React.Component {
       let nwState = Utils.mergeDeep(state, changes);
       return nwState;
     });
-  }
+  };
 
   onInputChange = ({ target: { value } }) => {
     if (value.trim() === "") {
@@ -163,7 +163,7 @@ export default class App extends React.Component {
       };
       const nwState = Utils.mergeDeep(state, changes);
       return nwState;
-    }, this.search(1, value));
+    }, this.showSearchResults(1, value));
   };
 
   onPaginationPageChanged = (page) => {
@@ -177,7 +177,7 @@ export default class App extends React.Component {
         },
       },
     });
-    this.search(page, this.state.searchData.query);
+    this.showSearchResults(page, this.state.searchData.query);
   };
 
   handleOffline = () => {
@@ -189,7 +189,7 @@ export default class App extends React.Component {
     this.setState((state) => {
       return Utils.mergeDeep(state, nwState);
     });
-    this.search(1, this.state.searchData.query);
+    this.showSearchResults(1, this.state.searchData.query);
   };
 
   handleTabClick = (key) => {
@@ -204,6 +204,10 @@ export default class App extends React.Component {
   };
 
   //#endregion
+
+  setRating = (movieId) => (rating) => {
+    this.dataManager.setRating(movieId, rating).catch(this.errorHandler);
+  };
 
   render() {
     const {
@@ -237,7 +241,10 @@ export default class App extends React.Component {
         {isShowNoRated ? <Message isNoRatedMovies /> : null}
 
         <Loader isLoading={isLoading}>
-          <CardList movies={isCurrentTabIsSearch ? movies : ratedMovies} />
+          <CardList
+            movies={isCurrentTabIsSearch ? movies : ratedMovies}
+            setRating={this.setRating}
+          />
         </Loader>
 
         <Pagination

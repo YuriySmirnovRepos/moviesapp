@@ -9,13 +9,16 @@ export default class Rate extends React.Component {
     };
   }
 
+
   render() {
+    const  {setRating, value}  = this.props;
     return (
       <AntdRate
         allowHalf
         count={10}
         value={this.state.value}
-        onChange={(value) => this.setState({ value })}
+        onChange={() =>{console.log();
+        }}
         style={{
           fontSize: "15px",
           marginTop: "auto",
