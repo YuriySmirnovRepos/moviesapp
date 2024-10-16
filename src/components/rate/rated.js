@@ -10,6 +10,7 @@ export default class Rate extends React.Component {
   }
 
 
+
   render() {
     const  {setRating, value}  = this.props;
     return (
@@ -17,7 +18,9 @@ export default class Rate extends React.Component {
         allowHalf
         count={10}
         value={this.state.value}
-        onChange={() =>{console.log();
+        onChange={(value) => {
+          this.setState({ value });
+          setRating(value);
         }}
         style={{
           fontSize: "15px",

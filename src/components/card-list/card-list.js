@@ -12,6 +12,7 @@ export default class CardList extends React.Component {
       return (
         <Col key={movie.id} span={12}>
           <Card
+          id = {movie.id}
             name={movie.name}
             premier={movie.premier}
             genres={movie.genres}

@@ -17,7 +17,7 @@ export default class App extends React.Component {
   componentDidMount() {
     this.dataManager
       .init()
-      .then(() => this.showSearchResults(1, "return"))
+      .then(() => this.renderSearchResults(1, "return"))
       .catch(this.errorHandler);
     window.addEventListener("offline", this.handleOffline);
     window.addEventListener("online", this.handleOnline);
@@ -29,7 +29,7 @@ export default class App extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    let isChanged = JSON.stringify(this.state) !== JSON.stringify(nextState);
+    const isChanged = JSON.stringify(this.state) !== JSON.stringify(nextState);
     return isChanged;
   }
   //#endregion
@@ -43,7 +43,7 @@ export default class App extends React.Component {
         Rated: 0,
       },
       movies: [],
-      ratedMovies: [],
+      ratedMovies: []
     },
     ui: {
       isLoading: true,
@@ -81,7 +81,36 @@ export default class App extends React.Component {
     return clearStateParams;
   };
 
-  showRated = (page) => {
+  renderMessage = () => {
+    const {
+      error,
+      searchData: { movies, ratedMovies },
+      ui: { isLoading, currentTab },
+    } = this.state;
+
+    const isCurrentTabIsSearch = currentTab === "Search";
+    const isMaybeAnInfoMessage = !isLoading && !error;
+    const isNoSearchResults = movies.length === 0;
+    const isNoRatedMovies = ratedMovies.length === 0;
+    const isShowNoResults =
+      isMaybeAnInfoMessage && isCurrentTabIsSearch && isNoSearchResults;
+    const isShowNoRated =
+      isMaybeAnInfoMessage && !isCurrentTabIsSearch && isNoRatedMovies;
+    const isShowError = !isLoading && error !== null;
+
+    switch (true) {
+      case isShowNoResults:
+        return <Message isNoSearchResults />;
+      case isShowNoRated:
+        return <Message isNoRatedMovies />;
+      case isShowError:
+        return <Message error={error} />;
+      default:
+        return null;
+    }
+  };
+
+  renderRatedFilms = (page) => {
     this.dataManager
       .getRated(page)
       .then((data) => {
@@ -105,7 +134,7 @@ export default class App extends React.Component {
       .catch(this.errorHandler);
   };
 
-  showSearchResults = (page, title) => {
+  renderSearchResults = (page, title) => {
     this.dataManager
       .search(title, page)
       .then((data) => {
@@ -131,6 +160,8 @@ export default class App extends React.Component {
       })
       .catch(this.errorHandler);
   };
+
+  
 
   //#region handlers
   errorHandler = (error) => {
@@ -163,7 +194,7 @@ export default class App extends React.Component {
       };
       const nwState = Utils.mergeDeep(state, changes);
       return nwState;
-    }, this.showSearchResults(1, value));
+    }, this.renderSearchResults(1, value));
   };
 
   onPaginationPageChanged = (page) => {
@@ -177,7 +208,7 @@ export default class App extends React.Component {
         },
       },
     });
-    this.showSearchResults(page, this.state.searchData.query);
+    this.renderSearchResults(page, this.state.searchData.query);
   };
 
   handleOffline = () => {
@@ -189,11 +220,15 @@ export default class App extends React.Component {
     this.setState((state) => {
       return Utils.mergeDeep(state, nwState);
     });
-    this.showSearchResults(1, this.state.searchData.query);
+    this.renderSearchResults(1, this.state.searchData.query);
   };
 
   handleTabClick = (key) => {
     const tabLabel = key === "1" ? "Search" : "Rated";
+    if (tabLabel === "Rated"){
+      this.renderRatedFilms(1);
+    }
+    
     const changes = {
       ui: {
         currentTab: tabLabel,
@@ -207,24 +242,16 @@ export default class App extends React.Component {
 
   setRating = (movieId) => (rating) => {
     this.dataManager.setRating(movieId, rating).catch(this.errorHandler);
+    // console.log(movieId, rating);
   };
 
   render() {
     const {
-      error,
       searchData: { query, movies, ratedMovies, totalElements },
       ui: { isLoading, currentPagination, currentTab },
     } = this.state;
 
     const isCurrentTabIsSearch = currentTab === "Search";
-    const isMaybeAnInfoMessage = !isLoading && !error;
-    const isNoSearchResults = movies.length === 0;
-    const isNoRatedMovies = ratedMovies.length === 0;
-    const isShowNoResults =
-      isMaybeAnInfoMessage && isCurrentTabIsSearch && isNoSearchResults;
-    const isShowNoRated =
-      isMaybeAnInfoMessage && !isCurrentTabIsSearch && isNoRatedMovies;
-    const isShowError = !isLoading && error !== null;
 
     const renderTabContent = (
       <React.Fragment>
@@ -236,9 +263,7 @@ export default class App extends React.Component {
           />
         ) : null}
 
-        {isShowError ? <Message error={error} /> : null}
-        {isShowNoResults ? <Message isNoSearchResults /> : null}
-        {isShowNoRated ? <Message isNoRatedMovies /> : null}
+        {this.renderMessage()}
 
         <Loader isLoading={isLoading}>
           <CardList

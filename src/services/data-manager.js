@@ -1,123 +1,96 @@
 const REACT_APP_ACCESS_TOKEN_AUTH = process.env.REACT_APP_ACCESS_TOKEN_AUTH;
-const BASE_URL = "http://api.themoviedb.org/3";
+const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGES_BASE_URL = "https://image.tmdb.org/t/p/w185"; //w185 - размер получаемой картинки к фильму
 const ITEMS_COUNT_PER_DISPLAY_PAGE = 6;
 const ITEMS_COUNT_PER_DATA_PAGE = 20;
 
+//Получает JSON, обрабатывает ошибки в заголовке ответа
 class MoviesApiService {
-  #getGuestSession = async () => {
-    const createGuestSession = async () => {
-      const url = `${BASE_URL}/authentication/guest_session/new`;
-      let { success, guest_session_id } = await this.#getResource(url);
+  constructor() {
+    this.get = this.#createMethod("GET");
+    this.post = this.#createMethod("POST");
+    this.delete = this.#createMethod("DELETE");
+  }
 
-      if (!success) {
-        throw new Error("Failed to create guest session");
+  #createMethod(method) {
+    return async (url, data) => {
+      if (!navigator.onLine) {
+        throw new Error("No internet connection");
       }
 
-      return guest_session_id;
+      const options = {
+        method,
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
+          "Content-Type": "application/json;charset=utf-8"
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      };
+
+      const response = await fetch(`${BASE_URL}${url}`, options);
+
+      const responseBody = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return {};
+        }
+        throw new Error(
+          `API Error: ${
+            response.statusText + `\n` + (responseBody.status_message || "")
+          }`
+        );
+      }
+      return responseBody;
     };
-
-    let guestSessionId = localStorage.getItem("guestSessionId");
-    if (guestSessionId) {
-      return guestSessionId;
-    }
-
-    const guest_session_id = await createGuestSession();
-    localStorage.setItem("guestSessionId", guest_session_id);
-
-    return guest_session_id;
-  };
-
-  #getResource = async (url) => {
-    if (!navigator.onLine) {
-      throw new Error("No internet connection");
-    }
-    const options = {
-      // mode: 'no-cors',
-      method: "GET",
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
-      },
-    };
-
-    let rslt = null;
-
-    rslt = await fetch(url, options);
-
-    if (!rslt.ok) {
-      if (rslt.status === 404) return {results: [], total_results: 0};
-      throw new Error(`Сервер сообщил об ошибке. ${rslt.statusText}`);
-    }
-
-    rslt = await rslt.json();
-
-    return rslt;
-  };
-
-  #setResource = async (url, data) => {
-    if (!navigator.onLine) {
-      throw new Error("No internet connection");
-    }
-    const options = {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    };
-
-    let rslt = await fetch(url, options);
-    if (!rslt?.ok) {
-      throw new Error("setResorce: Failed to set resource");
-    }
   }
 
-  #deleteResource = async (url) => {
-    if (!navigator.onLine) {
-      throw new Error("No internet connection");
+  #getGuestSession = async () => {
+    const cachedSession = JSON.parse(
+      localStorage.getItem("MoviesApp_guestSession")
+    );
+    if (cachedSession && new Date(cachedSession.expires_at) > new Date()) {
+      return cachedSession.guest_session_id;
     }
-    const options = {
-      method: "DELETE",
-      headers: {
-        accept: "application/json",
-        Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
-        "Content-Type": "application/json",
-      },
-    };
-    let rslt = await fetch(url, options);
-    if (!rslt?.ok) {
-      throw new Error("deleteResource: Failed to delete resource");
+
+    const url = `/authentication/guest_session/new`;
+    const { success, guest_session_id, expires_at } = await this.get(url);
+
+    if (!success) {
+      throw new Error("Failed to create guest session");
     }
-  }
-///////////////////////
-///////////////////////
+
+    const newSession = { guest_session_id, expires_at };
+    localStorage.setItem("MoviesApp_guestSession", JSON.stringify(newSession));
+
+    return newSession.guest_session_id;
+  };
+
+  ///////////////////////
+  ///////////////////////
   sendSetRating = async (movieId, rating) => {
     let guestSessionId = await this.#getGuestSession();
-    const url = `${BASE_URL}/movie/${movieId}/rating?guest_session_id=${guestSessionId}`;
-    this.#setResource(url, {value: rating});
-  }
+    const url = `/movie/${movieId}/rating?guest_session_id=${guestSessionId}`;
+    this.post(url, { value: rating });
+  };
 
   fetchGenres = async () => {
-    //получаем данные о жанрах
-    const genres = await this.#getResource(
-      `${BASE_URL}/genre/movie/list?language=en-US`
-    );
+    const url = "/genre/movie/list?language=en-US";
+    const genres = await this.get(url);
     return genres.genres;
   };
 
-  fetchSearch = async (dataPageNum = 1, title) => {
+  fetchSearchResults = async (dataPageNum = 1, title) => {
     const searchParams = new URLSearchParams({
       include_adult: false,
       query: title,
       page: dataPageNum,
     });
 
-    const url = `${BASE_URL}/search/movie?${searchParams}`;
+    const url = `/search/movie?${searchParams}`;
 
-    return await this.#getResource(url);
+    return await this.get(url);
   };
 
   fetchRated = async (dataPageNum = 1) => {
@@ -125,16 +98,19 @@ class MoviesApiService {
     const searchParams = new URLSearchParams({
       language: "en-US",
       page: dataPageNum,
-      sort_by: "created_at.asc",
+      // sort_by: "created_at.asc",
     });
 
-    const url = `${BASE_URL}/guest_session/${guestSessionId}/rated/movies?${searchParams}`;
+    const url = `/guest_session/${guestSessionId}/rated/movies?${searchParams}`;
 
-    return await this.#getResource(url);
+    return await this.get(url);
   };
 }
 
+//Обработка JSON для выдачи UI
 export default class DataManager {
+  static instance;
+
   #currentQuery = "";
   #searchCache = new Map();
   #ratedCache = new Map();
@@ -142,6 +118,14 @@ export default class DataManager {
   totalRatedCount = 0;
   #genres = null;
   #moviesApiService = new MoviesApiService();
+
+
+  constructor() {
+    if (!DataManager.instance) {
+      DataManager.instance = this;
+    }
+    return DataManager.instance;
+  }
 
   init = async () => {
     //Инициализация жанров
@@ -152,8 +136,7 @@ export default class DataManager {
     if (this.#ratedCache.size === 0) {
       const rated = await this.#moviesApiService.fetchRated();
       if (rated?.total_results > 0) {
-        // TODO: формат данных??
-        this.#ratedCache.set(1, ...rated.results);
+        this.#ratedCache.set(1, rated.results);
       }
     }
   };
@@ -171,7 +154,7 @@ export default class DataManager {
       ((displayPage - 1) * items2DisplayCount) % itemsPerPageDataCount;
     return { dataPage, startIdx };
   };
-  
+
   #getDisplayPageData = async (paginationPageNum, searchQuery) => {
     if (!this.#genres) {
       throw new Error("Genres not initialized. Check your internet connection");
@@ -220,7 +203,7 @@ export default class DataManager {
 
     const func2Use = isRatedNeeded
       ? this.#moviesApiService.fetchRated
-      : this.#moviesApiService.fetchSearch;
+      : this.#moviesApiService.fetchSearchResults;
     const args = isRatedNeeded ? [dataPageNum] : [dataPageNum, query];
 
     let results,
@@ -262,8 +245,8 @@ export default class DataManager {
       };
     });
   };
-////////////////////////////////
-////////////////////////////////
+  ////////////////////////////////
+  ////////////////////////////////
   search = async (nwQuery, paginationPageNum) => {
     return this.#getDisplayPageData(paginationPageNum, nwQuery);
   };
@@ -271,10 +254,6 @@ export default class DataManager {
   setRating = async (movieId, rating) => {
     return this.#moviesApiService.sendSetRating(movieId, rating);
   };
-
-  getMyRating = async (movieId) => {
-    return this.#moviesApiService.getMyRating(movieId);
-  }
 
   getRated = async (paginationPageNum) => {
     return this.#getDisplayPageData(paginationPageNum);

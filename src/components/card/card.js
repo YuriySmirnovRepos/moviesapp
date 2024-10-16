@@ -72,26 +72,19 @@ class CardContent extends React.Component {
     descRef.textContent = delete2words(descRef.textContent) + "...";
   };
 
-  render() {
-    let { id, name, premier, genres, description, rating, setRating } =
-      this.props.cardData;
-
-    if (!description) {
-      description = "No description";
-    }
-
+  renderVoteAverage = (ratingVal) => {
     let ratingColor = null;
     switch (true) {
-      case rating >= 0 && rating <= 3:
+      case ratingVal >= 0 && ratingVal <= 3:
         ratingColor = "#E90000";
         break;
-      case rating > 3 && rating <= 5:
+      case ratingVal > 3 && ratingVal <= 5:
         ratingColor = "#E97E00";
         break;
-      case rating > 5 && rating <= 7:
+      case ratingVal > 5 && ratingVal <= 7:
         ratingColor = "#E9D100";
         break;
-      case rating > 7:
+      case ratingVal > 7:
         ratingColor = "#66E900";
         break;
       default:
@@ -100,9 +93,7 @@ class CardContent extends React.Component {
     }
 
     return (
-      <div className="card__info-container">
-        <h1 className="card__title">{name}</h1>
-        <svg
+      <svg
           width="32"
           height="32"
           style={{ position: "absolute", top: "10px", right: "9px" }}
@@ -116,9 +107,26 @@ class CardContent extends React.Component {
             fill="none"
           />
           <text x="16" y="20" textAnchor="middle" fontSize="12" fill="black">
-            {parseFloat(rating).toFixed(1)}
+            {parseFloat(ratingVal).toFixed(1)}
           </text>
         </svg>
+    )
+  }
+
+  render() {
+    let { id, name, premier, genres, description, rating, setRating } =
+      this.props.cardData;
+
+    if (!description) {
+      description = "No description";
+    }
+
+    return (
+      <div className="card__info-container">
+        <h1 className="card__title">{name}</h1>
+
+        {this.renderVoteAverage(rating)}
+
         <p className="card__date">
           {(premier && format(new Date(premier), "LLLL dd, yyyy")) ||
             "No premier date"}
@@ -131,11 +139,12 @@ class CardContent extends React.Component {
             </span>
           ))}
         </span>
+
         <p ref={this.descriptionRef} className="card__description">
-          {/* //TODO: Обработать ситуацию с отсутствием описания  */}
           {description}
         </p>
-        <Rate value setRating={setRating(id)} />
+
+        <Rate value={value} setRating={setRating(id)} />
       </div>
     );
   }
