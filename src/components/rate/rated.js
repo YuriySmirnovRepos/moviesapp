@@ -2,14 +2,6 @@ import React from "react";
 import { Rate as AntdRate } from "antd";
 
 export default class Rate extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      value: 0,
-    };
-  }
-
-
 
   render() {
     const  {setRating, value}  = this.props;
@@ -17,9 +9,8 @@ export default class Rate extends React.Component {
       <AntdRate
         allowHalf
         count={10}
-        value={this.state.value}
+        value={value}
         onChange={(value) => {
-          this.setState({ value });
           setRating(value);
         }}
         style={{

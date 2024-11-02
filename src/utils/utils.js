@@ -35,4 +35,18 @@ export default class Utils {
     }
     return result;
   }
+
+  static paginationData2DisplayConvert(
+    pagDispNum,
+    items2DisplayCount = 6,
+    itemsPerPageDataCount = 20
+  ) {
+    const dataPageNum =
+      Math.floor(
+        ((pagDispNum - 1) * items2DisplayCount) / itemsPerPageDataCount
+      ) + 1;
+    const startIdx =
+      ((pagDispNum - 1) * items2DisplayCount) % itemsPerPageDataCount;
+    return { dataPageNum, startIdx };
+  }
 }

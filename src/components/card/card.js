@@ -114,13 +114,13 @@ class CardContent extends React.Component {
   }
 
   render() {
-    let { id, name, premier, genres, description, rating, setRating } =
+    let { id, name, premier, genres, description, rating, myRating, setRating } =
       this.props.cardData;
 
     if (!description) {
       description = "No description";
     }
-
+    
     return (
       <div className="card__info-container">
         <h1 className="card__title">{name}</h1>
@@ -144,7 +144,7 @@ class CardContent extends React.Component {
           {description}
         </p>
 
-        <Rate value={value} setRating={setRating(id)} />
+        <Rate value={myRating} setRating={setRating(id)} />
       </div>
     );
   }

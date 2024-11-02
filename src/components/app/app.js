@@ -43,7 +43,7 @@ export default class App extends React.Component {
         Rated: 0,
       },
       movies: [],
-      ratedMovies: []
+      ratedMovies: [],
     },
     ui: {
       isLoading: true,
@@ -55,7 +55,7 @@ export default class App extends React.Component {
     },
   };
 
-  #getCleanState = (isNeeds2ClearRated = false) => {
+  #getCleanState = (isWithClearRated = false) => {
     let clearStateParams = {
       error: null,
       searchData: {
@@ -73,12 +73,40 @@ export default class App extends React.Component {
         currentTab: "Search",
       },
     };
-    if (isNeeds2ClearRated) {
+    if (isWithClearRated) {
       clearStateParams.searchData.ratedMovies = [];
       clearStateParams.searchData.totalElements.Rated = 0;
       clearStateParams.ui.currentPagination.Rated = 1;
     }
     return clearStateParams;
+  };
+
+  setRating = (movieId) => (rating) => {
+    const stateChanges = {
+      ui: {
+        isLoading: true,
+      },
+    };
+    this.setState((state) => {
+      let nwState = Utils.mergeDeep(state, stateChanges);
+      return nwState;
+    });
+
+    this.dataManager
+      .setRating(movieId, rating)
+      .then(() => {
+        this.setState(() => {
+          if (this.state.ui.currentTab === "Rated") {
+            this.renderRatedMovies(this.state.ui.currentPagination.Rated);
+          } else {
+            this.renderSearchResults(
+              this.state.ui.currentPagination.Search,
+              this.state.searchData.query
+            );
+          }
+        });
+      })
+      .catch(this.errorHandler);
   };
 
   renderMessage = () => {
@@ -110,7 +138,7 @@ export default class App extends React.Component {
     }
   };
 
-  renderRatedFilms = (page) => {
+  renderRatedMovies = (page) => {
     this.dataManager
       .getRated(page)
       .then((data) => {
@@ -119,7 +147,7 @@ export default class App extends React.Component {
             totalElements: {
               Rated: this.dataManager.totalRatedCount,
             },
-            ratedMovies: data ?? [],
+            ratedMovies: data,
           },
           ui: {
             isLoading: false,
@@ -134,14 +162,14 @@ export default class App extends React.Component {
       .catch(this.errorHandler);
   };
 
-  renderSearchResults = (page, title) => {
+  renderSearchResults = (page, query) => {
     this.dataManager
-      .search(title, page)
+      .search(query, page)
       .then((data) => {
         const changes = {
           searchData: {
             totalElements: {
-              Search: this.dataManager.totalSearchCount,
+              Search: data.length && this.dataManager.totalSearchCount,
             },
             movies: data,
           },
@@ -161,13 +189,13 @@ export default class App extends React.Component {
       .catch(this.errorHandler);
   };
 
-  
-
   //#region handlers
   errorHandler = (error) => {
     this.setState((state) => {
-      let changes = this.#getCleanState();
+      let changes = this.#getCleanState(true);
       changes.error = error;
+      changes.ui.currentTab = state.ui.currentTab;
+      changes.query = state.searchData.query;
       let nwState = Utils.mergeDeep(state, changes);
       return nwState;
     });
@@ -208,7 +236,12 @@ export default class App extends React.Component {
         },
       },
     });
-    this.renderSearchResults(page, this.state.searchData.query);
+    
+    if (this.state.ui.currentTab === "Search") {
+      this.renderSearchResults(page, this.state.searchData.query);
+    } else {
+      this.renderRatedMovies(page);
+    }
   };
 
   handleOffline = () => {
@@ -225,25 +258,33 @@ export default class App extends React.Component {
 
   handleTabClick = (key) => {
     const tabLabel = key === "1" ? "Search" : "Rated";
-    if (tabLabel === "Rated"){
-      this.renderRatedFilms(1);
+    if (tabLabel === this.state.ui.currentTab) {
+      return;
     }
-    
     const changes = {
       ui: {
+        isLoading: true,
         currentTab: tabLabel,
       },
     };
-    const nwState = Utils.mergeDeep(this.state, changes);
-    this.setState(nwState);
+
+    this.setState((state) => {
+      let nwState = Utils.mergeDeep(state, changes);
+      return nwState;
+    }, () => {
+      if (tabLabel === "Rated") {
+        this.renderRatedMovies(this.state.ui.currentPagination["Rated"]);
+      } else {
+        this.renderSearchResults(
+          this.state.ui.currentPagination["Search"],
+          this.state.searchData.query
+        );
+      }
+    });
   };
 
   //#endregion
 
-  setRating = (movieId) => (rating) => {
-    this.dataManager.setRating(movieId, rating).catch(this.errorHandler);
-    // console.log(movieId, rating);
-  };
 
   render() {
     const {

@@ -15,10 +15,11 @@ export default class CardList extends React.Component {
           id = {movie.id}
             name={movie.name}
             premier={movie.premier}
-            genres={movie.genres}
+            genres={movie.genres ?? []}
             description={movie.description}
             poster={movie.poster}
             rating={movie.rating}
+            myRating={movie.myRating}
             setRating={setRating}
           />
         </Col>
