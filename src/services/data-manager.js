@@ -107,7 +107,7 @@ class MoviesApiService {
   };
 }
 
-//Обработка JSON для выдачи UI
+//Обработка JSON для выдачи UI с кешированием данных
 export default class DataManager {
   static instance;
   #ITEMS_COUNT_PER_DISPLAY_PAGE = 6;
