@@ -1,4 +1,5 @@
 import React from "react";
+import "./rated.css";
 import { Rate as AntdRate } from "antd";
 
 export default class Rate extends React.Component {
@@ -13,14 +14,7 @@ export default class Rate extends React.Component {
         onChange={(value) => {
           setRating(value);
         }}
-        style={{
-          fontSize: "15px",
-          marginTop: "auto",
-          height: "46px",
-          textAlign: "center",
-          alignContent: "center",
-          flexShrink: 0,
-        }}
+        className="card__rate"
       />
     );
   }

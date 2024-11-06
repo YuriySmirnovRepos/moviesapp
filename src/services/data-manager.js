@@ -155,7 +155,7 @@ export default class DataManager {
       responses.forEach((response, index) =>
         this.#ratedFilmsCache.set(
           index + 1, //номер страницы данных
-          this.#transformData(response.results)
+          this.#transformDataFromServer(response.results)
         )
       );
 
@@ -234,7 +234,7 @@ export default class DataManager {
     try {
       ({ results, total_results } = await func2Use(...args));
       if (total_results > 0) {
-        results = this.#transformData(results);
+        results = this.#transformDataFromServer(results);
         if (isGetRated) {
           this.totalRatedCount = total_results;
           this.#ratedFilmsCache.set(dataPageNum, results);
@@ -257,7 +257,7 @@ export default class DataManager {
     return results;
   };
 
-  #transformData = (data) => {
+  #transformDataFromServer = (data = Array()) => {
     //Вспомогательная функция получения имени жанра по ID
     const getGenreName = (genreId) => {
       const findedGenre = this.#genres.find((genre) => genre.id === genreId);
@@ -312,15 +312,16 @@ export default class DataManager {
       });
 
       if (!isFilmInRatedCache) {
-        const lastPageLength = this.#ratedFilmsCache.get(this.#ratedFilmsCache.size).length;
-        if (lastPageLength < 20) {  
-        this.#ratedFilmsCache.set(this.#ratedFilmsCache.size, [
-          ...this.#ratedFilmsCache.get(this.#ratedFilmsCache.size),
+        const cacheSize = this.#ratedFilmsCache.size;
+        const lastPageLength = cacheSize && this.#ratedFilmsCache.get(cacheSize).length;
+        if (lastPageLength > 0 && lastPageLength < 20) {  
+        this.#ratedFilmsCache.set(cacheSize, [
+          ...this.#ratedFilmsCache.get(cacheSize),
           { ...film2AddToRatedCache, myRating: rating },
         ]);
         }
         else {
-          this.#ratedFilmsCache.set(this.#ratedFilmsCache.size + 1, [
+          this.#ratedFilmsCache.set(cacheSize + 1, [
             { ...film2AddToRatedCache, myRating: rating },
           ]);
         }

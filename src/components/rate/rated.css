@@ -1,0 +1,13 @@
+.card__rate{
+    grid-area: rate;
+    font-size: 15px;
+    margin: auto auto 0 auto;
+    height: 46px;
+    width: 240px;
+    text-align: center;
+    align-content: center;
+
+    @media screen and (max-width: 420px) {
+        margin: auto 0 0 auto;
+    }
+}

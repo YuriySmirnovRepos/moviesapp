@@ -1,6 +1,5 @@
 .card {
     box-shadow: 0px 4px 12px 0px #00000026;
-    width: 451px;
     height: 279px;
     border-radius: 0;
     font-family: 'Inter', sans-serif;
@@ -10,38 +9,55 @@
     line-height: 17px;
     color: #000000;
     border:none;
+
+    @media screen and (max-width: 767px) {
+        height: 245px;
+    }
 }
 
 .ant-card .ant-card-body{
     padding:0;
     height: 100%;
+    display: grid;
+    grid-template-areas: 
+    "poster descContainer"
+    "poster description"
+    "poster rate";
+    grid-template-columns: 183px auto;
+    grid-template-rows: 1fr 4fr 1fr;
+
+    @media screen and (max-width: 1000px) {
+        grid-template-areas: "poster descContainer"
+        "description description"
+        "rate rate";
+        grid-template-rows: 1fr 2fr 1fr;
+        grid-template-columns: 60px auto;
+    }
 }
 
-.container .ant-card-body .card__cover-container{
-    padding: 0;
-    width: 183px;
-    box-shadow: none;
+
+.card__cover {
+    height: 100%;
+    grid-area: poster;
+    max-width: 183px;
+    object-fit: cover;
+
+    @media screen and (max-width: 1000px) {
+        margin: 6px 0 0 10px;
+        width:100%;
+    }
 }
 
 .container .ant-card-body .card__info-container{
-    width: 268px;
+    grid-area: descContainer;
     box-shadow: none;
     padding: 10px 20px 0px 20px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    position:relative;
-}
-
-.card__cover {
-    width: 183px;
-    height: 100%;
-    object-fit: cover;
+    position: relative;
 }
 
 .card__title{
     margin:0;
-    width: 88%;
+    width: calc(100% - 23px);
     font-weight: 400;
     font-size: 20px;
     line-height: 28px;
@@ -76,9 +92,15 @@
 }
 
 .card__description{
+    grid-area: description;
     font-size: 12px;
     line-height: 22px;
     margin: 7px 0 0 0;
-    flex-grow: 1;
+    padding: 0 20px;
     overflow: hidden;
+
+    @media screen and (max-width: 1000px) {
+        margin: 10px 0 0 0;
+        padding: 0 10px;
+    }
 }

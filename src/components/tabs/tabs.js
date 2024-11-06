@@ -7,7 +7,7 @@ const Tabs = ({ currentTabKey, renderTabContent, onTabClick, isLoading }) => {
     <TabsAntd
       onTabClick={onTabClick}
       activeKey={currentTabKey}
-      tabBarStyle={{ width: "min-content", margin: "19px auto" }}
+      tabBarStyle={{ width: "min-content", margin: "13px auto 0 auto" }}
       style={{ width: "100%" }}
       defaultActiveKey="1" centered items=
       {[

@@ -1,18 +1,26 @@
-import React from 'react';
-import { Col, Row } from 'antd';
-import Card from '../card/card';
-import propTypes from 'prop-types';
-import './card-list.css';
+import React from "react";
+import { Col, Row } from "antd";
+import Card from "../card/card";
+import propTypes from "prop-types";
+import "./card-list.css";
 
 export default class CardList extends React.Component {
   render() {
     const { movies, setRating } = this.props;
-    
+
+    const style = movies.length === 0 ? { marginTop: 0 } : { marginTop: 34 };
+
     const cards = movies.map((movie) => {
       return (
-        <Col key={movie.id} span={12}>
+        <Col
+          xs={{ span: 24 }}
+          md={{ span: 12 }}
+          lg={{ span: 12 }}
+          key={movie.id}
+          span={12}
+        >
           <Card
-          id = {movie.id}
+            id={movie.id}
             name={movie.name}
             premier={movie.premier}
             genres={movie.genres ?? []}
@@ -26,7 +34,17 @@ export default class CardList extends React.Component {
       );
     });
 
-    return <Row gutter={[36, 36]}>{cards}</Row>;
+    return (
+      <Row
+        gutter={[
+          { xs: 20, sm: 25, md: 25, lg: 36 },
+          { xs: 20, sm: 25, md: 25, lg: 36 },
+        ]}
+        style={style}
+      >
+        {cards}
+      </Row>
+    );
   }
 }
 

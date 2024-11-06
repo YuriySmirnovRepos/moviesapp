@@ -19,7 +19,7 @@ export default class Card extends React.Component {
     const { poster } = this.props;
 
     const posterLoader = (
-      <div style={{ height: "100%", width: "185px" }}>
+      <div style={{ gridArea: "poster", height: "100%" }}>
         <Spin
           indicator={<LoadingOutlined spin />}
           style={{ top: "50%", left: "50%" }}
@@ -29,7 +29,6 @@ export default class Card extends React.Component {
 
     return (
       <AntdCard hoverable={true} className="card">
-        <Flex style={{ height: "100%" }}>
           {this.state.isPosterLoaded ? null : posterLoader}
           <img
             alt="Film poster"
@@ -39,7 +38,6 @@ export default class Card extends React.Component {
             style={{ display: this.state.isPosterLoaded ? "block" : "none" }}
           />
           <CardContent cardData={this.props} />
-        </Flex>
       </AntdCard>
     );
   }
@@ -52,11 +50,19 @@ class CardContent extends React.Component {
   }
 
   componentDidMount() {
+    this.#checkDescription();
+  }
+
+  componentDidUpdate() {
+    this.#checkDescription();
+  }
+
+  #checkDescription = () => {
     let { scrollHeight, clientHeight } = this.descriptionRef.current;
     if (scrollHeight !== clientHeight) {
       this.#truncateTxt();
     }
-  }
+  };
 
   #truncateTxt = () => {
     const delete2words = (txt) => txt.split(" ").slice(0, -2).join(" ");
@@ -122,6 +128,7 @@ class CardContent extends React.Component {
     }
     
     return (
+      <React.Fragment>
       <div className="card__info-container">
         <h1 className="card__title">{name}</h1>
 
@@ -139,13 +146,13 @@ class CardContent extends React.Component {
             </span>
           ))}
         </span>
-
-        <p ref={this.descriptionRef} className="card__description">
-          {description}
-        </p>
-
-        <Rate value={myRating} setRating={setRating(id)} />
       </div>
+      <p ref={this.descriptionRef} className="card__description">
+        {description}
+      </p>
+
+      <Rate value={myRating} setRating={setRating(id)} />
+      </React.Fragment>
     );
   }
 }
