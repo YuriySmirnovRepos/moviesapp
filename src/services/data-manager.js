@@ -248,12 +248,6 @@ export default class DataManager {
       throw error;
     }
 
-    // if (isGetRated) {
-    //   this.totalRatedCount = total_results;
-    // } else {
-    //   this.totalSearchCount = total_results;
-    // }
-
     return results;
   };
 
