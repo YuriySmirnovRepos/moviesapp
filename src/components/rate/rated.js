@@ -1,21 +1,28 @@
-import React from "react";
-import "./rated.css";
-import { Rate as AntdRate } from "antd";
+import React from 'react';
+import './rated.css';
+import { Rate as AntdRate } from 'antd';
+import propTypes from 'prop-types';
 
-export default class Rate extends React.Component {
-
-  render() {
-    const  {setRating, value}  = this.props;
-    return (
-      <AntdRate
-        allowHalf
-        count={10}
-        value={value}
-        onChange={(value) => {
-          setRating(value);
-        }}
-        className="card__rate"
-      />
-    );
-  }
+export default function Rate({ setRating, value }) {
+  return (
+    <AntdRate
+      allowHalf
+      count={10}
+      value={value}
+      onChange={(ratingValue) => {
+        setRating(ratingValue);
+      }}
+      className="card__rate"
+    />
+  );
 }
+
+Rate.propTypes = {
+  setRating: propTypes.func,
+  value: propTypes.number,
+};
+
+Rate.defaultProps = {
+  setRating: () => {},
+  value: 0,
+};

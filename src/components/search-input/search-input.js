@@ -1,11 +1,13 @@
-import React from "react";
-import "./search-input.css";
-import { Input } from "antd";
-import Utils from "../../utils/utils";
+import React from 'react';
+import './search-input.css';
+import { Input } from 'antd';
+import propTypes from 'prop-types';
+
+import Utils from '../../utils/utils';
 
 const INPUT_DELAY_BEFORE_SEARCH = 800;
 
-const SearchInput = ({ disabled, onInputChange, query }) => {
+function SearchInput({ disabled, onInputChange, query }) {
   return (
     <Input
       disabled={disabled}
@@ -15,6 +17,18 @@ const SearchInput = ({ disabled, onInputChange, query }) => {
       className="search-input"
     />
   );
-};
+}
 
 export default SearchInput;
+
+SearchInput.propTypes = {
+  disabled: propTypes.bool,
+  onInputChange: propTypes.func,
+  query: propTypes.string,
+};
+
+SearchInput.defaultProps = {
+  disabled: false,
+  onInputChange: () => null,
+  query: null,
+};

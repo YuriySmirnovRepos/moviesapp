@@ -1,3 +1,3 @@
-import Rate from "./rated";
+import Rate from './rated';
 
 export default Rate;

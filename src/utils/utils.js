@@ -12,8 +12,8 @@ export default class Utils {
   static mergeDeep(obj1, obj2) {
     const checkObjects = (o1, o2) => {
       return (
-        typeof o1 === "object" &&
-        typeof o2 === "object" &&
+        typeof o1 === 'object' &&
+        typeof o2 === 'object' &&
         !!o1 &&
         !!o2 &&
         Object.getPrototypeOf(o1) === Object.prototype &&
@@ -22,7 +22,7 @@ export default class Utils {
     };
 
     const result = {};
-    for (const key in obj1) {
+    Object.keys(obj1).forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(obj1, key)) {
         if (Object.prototype.hasOwnProperty.call(obj2, key)) {
           result[key] = checkObjects(obj1[key], obj2[key])
@@ -32,18 +32,29 @@ export default class Utils {
           result[key] = obj1[key];
         }
       }
-    }
+    });
+    // for (const key in obj1) {
+    //   if (Object.prototype.hasOwnProperty.call(obj1, key)) {
+    //     if (Object.prototype.hasOwnProperty.call(obj2, key)) {
+    //       result[key] = checkObjects(obj1[key], obj2[key])
+    //         ? Utils.mergeDeep(obj1[key], obj2[key])
+    //         : obj2[key];
+    //     } else {
+    //       result[key] = obj1[key];
+    //     }
+    //   }
+    // }
     return result;
   }
 
   static paginationData2DisplayConvert(
     pagDispNum,
     items2DisplayCount = 6,
-    itemsPerPageDataCount = 20
+    itemsPerPageDataCount = 20,
   ) {
     const dataPageNum =
       Math.floor(
-        ((pagDispNum - 1) * items2DisplayCount) / itemsPerPageDataCount
+        ((pagDispNum - 1) * items2DisplayCount) / itemsPerPageDataCount,
       ) + 1;
     const startIdx =
       ((pagDispNum - 1) * items2DisplayCount) % itemsPerPageDataCount;

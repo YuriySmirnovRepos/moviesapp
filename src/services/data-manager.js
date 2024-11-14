@@ -1,131 +1,40 @@
-const REACT_APP_ACCESS_TOKEN_AUTH = process.env.REACT_APP_ACCESS_TOKEN_AUTH;
-const BASE_URL = "https://api.themoviedb.org/3";
-const IMAGES_BASE_URL = "https://image.tmdb.org/t/p/w185"; //w185 - размер получаемой картинки к фильму
+// w185 - размер получаемой картинки к фильму
 
-import Utils from "../utils/utils";
+import Utils from '../utils/utils';
 
-//Получает JSON, обрабатывает ошибки в заголовке ответа
-class MoviesApiService {
-  constructor() {
-    this.get = this.#createMethod("GET");
-    this.post = this.#createMethod("POST");
-    this.delete = this.#createMethod("DELETE");
-  }
+import MoviesApiService from './movies-api-service';
 
-  //Если 404 - возвращает {total_results: 0, results: [], total_pages: 0}
-  #createMethod(method) {
-    return async (url, data) => {
-      if (!navigator.onLine) {
-        throw new Error("No internet connection");
-      }
+const IMAGES_BASE_URL = 'https://image.tmdb.org/t/p/w185';
 
-      const options = {
-        method,
-        headers: {
-          accept: "application/json",
-          Authorization: `Bearer ${REACT_APP_ACCESS_TOKEN_AUTH}`,
-          "Content-Type": "application/json;charset=utf-8",
-        },
-        body: data ? JSON.stringify(data) : undefined,
-      };
-
-      const response = await fetch(`${BASE_URL}${url}`, options);
-
-      const responseBody = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          return { total_results: 0, results: [], total_pages: 0 };
-        }
-        throw new Error(
-          `API Error: ${
-            response.statusText + `\n` + (responseBody.status_message || "")
-          }`
-        );
-      }
-      return responseBody;
-    };
-  }
-
-  #getGuestSession = async () => {
-    const cachedSession = JSON.parse(
-      localStorage.getItem("MoviesApp_guestSession")
-    );
-    if (cachedSession && new Date(cachedSession.expires_at) > new Date()) {
-      return cachedSession.guest_session_id;
-    }
-
-    const url = `/authentication/guest_session/new`;
-    const { success, guest_session_id, expires_at } = await this.get(url);
-
-    if (!success) {
-      throw new Error("Failed to create guest session");
-    }
-
-    const newSession = { guest_session_id, expires_at };
-    localStorage.setItem("MoviesApp_guestSession", JSON.stringify(newSession));
-
-    return newSession.guest_session_id;
-  };
-
-  ///////////////////////
-  ///////////////////////
-  sendSetRating = async (movieId, rating) => {
-    let guestSessionId = await this.#getGuestSession();
-    const url = `/movie/${movieId}/rating?guest_session_id=${guestSessionId}`;
-    this.post(url, { value: rating });
-  };
-
-  fetchGenres = async () => {
-    const url = "/genre/movie/list?language=en-US";
-    const genres = await this.get(url);
-    return genres.genres;
-  };
-
-  fetchSearchResults = async (dataPageNum = 1, title) => {
-    const searchParams = new URLSearchParams({
-      include_adult: false,
-      query: title,
-      page: dataPageNum,
-    });
-
-    const url = `/search/movie?${searchParams}`;
-
-    return await this.get(url);
-  };
-
-  fetchRated = async (dataPageNum = 1) => {
-    let guestSessionId = await this.#getGuestSession();
-    const searchParams = new URLSearchParams({
-      language: "en-US",
-      page: dataPageNum,
-    });
-
-    const url = `/guest_session/${guestSessionId}/rated/movies?${searchParams}`;
-
-    return await this.get(url);
-  };
-}
-
-//Обработка JSON для выдачи UI с кешированием данных
+// Обработка JSON для выдачи UI с кешированием данных
 export default class DataManager {
   static instance;
+
   #ITEMS_COUNT_PER_DISPLAY_PAGE = 6;
+
   #ITEMS_COUNT_PER_DATA_PAGE = 20;
 
-  #currentQuery = "";
+  #currentQuery = '';
+
   #searchCache = new Map();
+
   #ratedFilmsCache = new Map();
+
   #ratedFilmsByIdCache = new Map();
+
   totalSearchCount = 0;
+
   totalRatedCount = 0;
+
   #genres = null;
+
   #moviesApiService = new MoviesApiService();
 
   constructor() {
     if (!DataManager.instance) {
       DataManager.instance = this;
     }
+    // eslint-disable-next-line no-constructor-return
     return DataManager.instance;
   }
 
@@ -136,42 +45,43 @@ export default class DataManager {
       }
     };
     const initRated = async () => {
-      const { total_pages, total_results } =
+      const { total_pages: totalPages, total_results: totalResults } =
         await this.#moviesApiService.fetchRated(1);
 
-      if (total_results === 0) {
-        //Если нет рейтингов
+      if (totalResults === 0) {
+        // Если нет рейтингов
         return;
       }
 
-      this.totalRatedCount = total_results;
+      this.totalRatedCount = totalResults;
 
-      //[ {results: [], total_pages: x, total_results: y}, {...}, ...]
-      const promises = Array(total_pages)
+      // [ {results: [], total_pages: x, total_results: y}, {...}, ...]
+      const promises = Array(totalPages)
         .fill(0)
         .map((_, page) => this.#moviesApiService.fetchRated(page + 1));
 
       const responses = await Promise.all(promises);
       responses.forEach((response, index) =>
         this.#ratedFilmsCache.set(
-          index + 1, //номер страницы данных
-          this.#transformDataFromServer(response.results)
-        )
+          index + 1, // номер страницы данных
+          this.#transformDataFromServer(response.results),
+        ),
       );
 
-      responses.flatMap(({ results }) => results).forEach((film) => {
-        this.#ratedFilmsByIdCache.set(film.id, film.rating);
-      });
+      responses
+        .flatMap(({ results }) => results)
+        .forEach((film) => {
+          this.#ratedFilmsByIdCache.set(film.id, film.rating);
+        });
     };
 
     await initGenres();
     await initRated();
   };
 
-
   #getDisplayPageData = async (paginationPageNum, searchQuery) => {
     if (!this.#genres) {
-      throw new Error("Genres not initialized. Check your internet connection");
+      throw new Error('Genres not initialized. Check your internet connection');
     }
 
     if (searchQuery) {
@@ -187,25 +97,25 @@ export default class DataManager {
     const { dataPageNum, startIdx } = Utils.paginationData2DisplayConvert(
       paginationPageNum,
       this.#ITEMS_COUNT_PER_DISPLAY_PAGE,
-      this.#ITEMS_COUNT_PER_DATA_PAGE
+      this.#ITEMS_COUNT_PER_DATA_PAGE,
     );
 
-    let rslt = [];
-    let endIdx =
+    const rslt = [];
+    const endIdx =
       startIdx +
       this.#ITEMS_COUNT_PER_DISPLAY_PAGE -
       this.#ITEMS_COUNT_PER_DATA_PAGE;
 
     const data = await this.#getData(dataPageNum, searchQuery);
     rslt.push(
-      ...data.slice(startIdx, startIdx + this.#ITEMS_COUNT_PER_DISPLAY_PAGE)
+      ...data.slice(startIdx, startIdx + this.#ITEMS_COUNT_PER_DISPLAY_PAGE),
     );
 
     if (endIdx > 0) {
-      //если начальный индекс > 14, считать данные со следующей страницы
+      // если начальный индекс > 14, считать данные со следующей страницы
       const secondPartOfData = await this.#getData(
         dataPageNum + 1,
-        searchQuery
+        searchQuery,
       );
       rslt.push(...secondPartOfData.slice(0, endIdx));
     }
@@ -229,30 +139,30 @@ export default class DataManager {
       : this.#moviesApiService.fetchSearchResults;
     const args = isGetRated ? [dataPageNum] : [dataPageNum, query];
 
-    let results,
-      total_results = null;
-    try {
-      ({ results, total_results } = await func2Use(...args));
-      if (total_results > 0) {
-        results = this.#transformDataFromServer(results);
-        if (isGetRated) {
-          this.totalRatedCount = total_results;
-          this.#ratedFilmsCache.set(dataPageNum, results);
-        } else {
-          this.totalSearchCount = total_results;
-          this.#searchCache.set(dataPageNum, results);
-        }
+    let results;
+    let totalResults = null;
+    // try {
+    ({ results, total_results: totalResults } = await func2Use(...args));
+    if (totalResults > 0) {
+      results = this.#transformDataFromServer(results);
+      if (isGetRated) {
+        this.totalRatedCount = totalResults;
+        this.#ratedFilmsCache.set(dataPageNum, results);
+      } else {
+        this.totalSearchCount = totalResults;
+        this.#searchCache.set(dataPageNum, results);
       }
-    } catch (error) {
-      console.log(error);
-      throw error;
     }
+    // } catch (error) {
+    //   console.log(error);
+    //   throw error;
+    // }
 
     return results;
   };
 
-  #transformDataFromServer = (data = Array()) => {
-    //Вспомогательная функция получения имени жанра по ID
+  #transformDataFromServer = (data = []) => {
+    // Вспомогательная функция получения имени жанра по ID
     const getGenreName = (genreId) => {
       const findedGenre = this.#genres.find((genre) => genre.id === genreId);
       return findedGenre.name;
@@ -278,7 +188,9 @@ export default class DataManager {
   };
 
   search = async (nwQuery, paginationPageNum) => {
-    if (!nwQuery) {return [];}
+    if (!nwQuery) {
+      return [];
+    }
     return this.#getDisplayPageData(paginationPageNum, nwQuery);
   };
 
@@ -291,30 +203,32 @@ export default class DataManager {
       this.#searchCache.forEach((films) => {
         const filmIndex = films.findIndex((f) => f.id === movieId);
         if (filmIndex !== -1) {
+          // eslint-disable-next-line no-param-reassign
           films[filmIndex] = { ...films[filmIndex], myRating: rating };
           film2AddToRatedCache = films[filmIndex];
         }
       });
-      
+
       let isFilmInRatedCache = false;
       this.#ratedFilmsCache.forEach((films) => {
         const filmIndex = films.findIndex((f) => f.id === movieId);
         if (filmIndex !== -1) {
           isFilmInRatedCache = true;
+          // eslint-disable-next-line no-param-reassign
           films[filmIndex] = { ...films[filmIndex], myRating: rating };
         }
       });
 
       if (!isFilmInRatedCache) {
         const cacheSize = this.#ratedFilmsCache.size;
-        const lastPageLength = cacheSize && this.#ratedFilmsCache.get(cacheSize).length;
-        if (lastPageLength > 0 && lastPageLength < 20) {  
-        this.#ratedFilmsCache.set(cacheSize, [
-          ...this.#ratedFilmsCache.get(cacheSize),
-          { ...film2AddToRatedCache, myRating: rating },
-        ]);
-        }
-        else {
+        const lastPageLength =
+          cacheSize && this.#ratedFilmsCache.get(cacheSize).length;
+        if (lastPageLength > 0 && lastPageLength < 20) {
+          this.#ratedFilmsCache.set(cacheSize, [
+            ...this.#ratedFilmsCache.get(cacheSize),
+            { ...film2AddToRatedCache, myRating: rating },
+          ]);
+        } else {
           this.#ratedFilmsCache.set(cacheSize + 1, [
             { ...film2AddToRatedCache, myRating: rating },
           ]);

@@ -1,13 +1,13 @@
-import React from "react";
-import { Pagination as PaginationAntd } from "antd";
-import "./pagination.css";
+import React from 'react';
+import { Pagination as PaginationAntd } from 'antd';
+import './pagination.css';
+import propTypes from 'prop-types';
 
-const Pagination = ({
+function Pagination({
   currentPaginationPage,
   totalElementsCount,
   onPaginationPageChanged,
-}) => {
-
+}) {
   return (
     <PaginationAntd
       showSizeChanger={false}
@@ -19,6 +19,18 @@ const Pagination = ({
       onChange={onPaginationPageChanged}
     />
   );
-};
+}
 
 export default Pagination;
+
+Pagination.defaultProps = {
+  currentPaginationPage: 1,
+  totalElementsCount: 0,
+  onPaginationPageChanged: () => {},
+};
+
+Pagination.propTypes = {
+  currentPaginationPage: propTypes.number,
+  totalElementsCount: propTypes.number,
+  onPaginationPageChanged: propTypes.func,
+};
